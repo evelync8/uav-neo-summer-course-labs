@@ -20,6 +20,10 @@ So every flying lab must:
 captured at launch so labs never hardcode the absolute spawn altitude.
 """
 
+import csv
+import os
+import time
+
 import cv2
 import numpy as np
 
@@ -141,6 +145,15 @@ def height(drone):
     return drone.physics.get_altitude() - _ground_alt
 
 
+def world_position(drone):
+    """True world position (x_east, y_up, z_north) in meters, straight from the sim.
+
+    Uses the drone's direct position readout (no drift, no GPS round-trip). Requires a
+    simulator build new enough to support it.
+    """
+    return tuple(float(v) for v in drone.physics.get_position())
+
+
 class Launcher:
     """
     Arms the drone and climbs to `target_height` meters above the ground measured
@@ -191,3 +204,107 @@ class Launcher:
             print(f"[launch] airborne {height(drone):.2f} m above ground "
                   f"(ground={ground():.2f} m)")
         return self.done
+
+
+# ── Flight recording (opt-in) ────────────────────────────────────────────────────────
+# Set NEO_RECORD=<path>.csv and call neo_lab.record(drone) once per frame in a lab's
+# update loop. Each row (time, height, velocity, heading, dead-reckoned x/z, plus any
+# extra= channels) is written and flushed immediately, so data survives even if the run
+# is stopped early. Plot the CSV afterward with labs/plot_log.py.
+
+class Recorder:
+    """Writes per-frame telemetry rows to a CSV (columns fixed by the first row)."""
+
+    def __init__(self, path):
+        self._file = open(path, "w", newline="")
+        self._writer = None
+        self._fields = None
+
+    def log(self, **values):
+        if self._writer is None:
+            self._fields = list(values.keys())
+            self._writer = csv.DictWriter(self._file, fieldnames=self._fields,
+                                          extrasaction="ignore")
+            self._writer.writeheader()
+        self._writer.writerow({k: values.get(k, "") for k in self._fields})
+        self._file.flush()
+
+
+_recorder = None
+_rec_t0 = None
+
+
+def record(drone, **extra):
+    """If NEO_RECORD is set, append one telemetry row; otherwise do nothing.
+
+    Universal channels: t, height, vx, vy, vz (body-frame velocity), heading, and
+    x/z (TRUE world east/north position from world_position, so trajectory plots do
+    not drift). Pass extra named channels (e.g. gate_width=...) to log lab-specific
+    values alongside.
+    """
+    global _recorder, _rec_t0
+    path = os.environ.get("NEO_RECORD")
+    if not path:
+        return
+    now = time.time()
+    if _recorder is None:
+        _recorder = Recorder(path)
+        _rec_t0 = now
+    vx, vy, vz = (float(v) for v in drone.physics.get_linear_velocity())
+    _, _, yaw = (float(a) for a in drone.physics.get_attitude())
+    x_east, _y_up, z_north = world_position(drone)
+    row = {
+        "t": round(now - _rec_t0, 3),
+        "height": round(height(drone), 3),
+        "vx": round(vx, 3), "vy": round(vy, 3), "vz": round(vz, 3),
+        "heading": round(yaw, 2),
+        "x": round(x_east, 3), "z": round(z_north, 3),
+    }
+    row.update(extra)
+    _recorder.log(**row)
+
+
+def run_module(title, steps, launch_height=3.0):
+    """Standard lab orchestrator: create the drone, arm and climb, then run each step in
+    order and land. `steps` is a list of (label, module) where each module has reset()
+    and update(drone) -> done. Records telemetry when NEO_RECORD is set.
+
+    Each lab's main.py / main_solution.py is a thin wrapper that imports its step modules
+    and calls this, so the orchestration lives in one place.
+    """
+    import drone_core
+    drone = drone_core.create_drone()
+    launcher = Launcher(launch_height)
+    state = {"i": 0}
+
+    def start():
+        state["i"] = 0
+        launcher.reset()
+        print("\n" + "=" * 56)
+        print(f"  {title}")
+        print("=" * 56 + "\n")
+
+    def update():
+        record(drone)
+        if not launcher.done:
+            if launcher.update(drone):
+                steps[0][1].reset()
+                print(f"--- {steps[0][0]} ---")
+            return
+        if state["i"] >= len(steps):
+            drone.flight.land()
+            return
+        if steps[state["i"]][1].update(drone):
+            state["i"] += 1
+            if state["i"] < len(steps):
+                steps[state["i"]][1].reset()
+                print(f"\n--- {steps[state['i']][0]} ---")
+            else:
+                print("\n=== Module complete! Landing... ===")
+
+    def update_slow():
+        if launcher.done and state["i"] < len(steps):
+            print(f"[{steps[state['i']][0]}] height={height(drone):.2f}m")
+
+    drone.set_start_update(start, update, update_slow)
+    drone.go()
