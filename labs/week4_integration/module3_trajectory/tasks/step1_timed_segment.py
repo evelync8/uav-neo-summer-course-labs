@@ -3,8 +3,9 @@ MIT BWSI Autonomous Drone Racing Course - UAV Neo
 GNU General Public License v3.0
 
 Week 4 · Module 3 — Step 1: Track a Timed Segment
-A waypoint says WHERE to go; a trajectory says where to be at every INSTANT. Here you follow
-a moving target: match both its position and its velocity. Position is dead-reckoned, so it drifts.
+A waypoint says WHERE to go; a trajectory says where to be at every INSTANT. You follow a
+moving target by commanding VELOCITY: feed forward the trajectory's own velocity, then add a
+correction for position error. Position is dead-reckoned, so it drifts.
 """
 
 import drone_core
@@ -25,12 +26,8 @@ GOAL_RIGHT = 2.0
 GOAL_FWD = 6.0
 TARGET_HEIGHT = 3.0
 DURATION = 5.0        # seconds to fly the segment
-KP_POS = 0.15         # position gain: pull toward where you should be now
-KV_POS = 0.5          # velocity gain: match the trajectory's speed (feedforward + damping)
-ALT_KP = 0.12
-ROLL_LIMIT = 0.25
-PITCH_LIMIT = 0.25
-THROTTLE_LIMIT = 0.5
+KP_POS = 0.6          # position error -> velocity (1/s): how hard to close a position gap
+ALT_KP = 0.6          # altitude error -> vertical velocity (1/s)
 
 # -- Module-level state -----------------------------------------------------
 _t = 0.0
@@ -79,15 +76,17 @@ def update(drone):
     ##################################
     #### START PUT CODE HERE #########
 
-    # GOAL: keep the drone on the moving target (pos_r, pos_f) that trajectory() returns.
+    # GOAL: keep the drone on the moving target (pos_r, pos_f) by commanding a VELOCITY.
     #
-    # Drive each horizontal axis with a POSITION gain and a VELOCITY gain:
-    #   command = KP_POS * (desired position - your position)
-    #           + KV_POS * (desired velocity - your velocity)
-    # The velocity term is the feedforward from Week 3: it commands the trajectory's own
-    # speed so you ride alongside the target instead of trailing it. Use roll for the
-    # right axis (pos_r, vel_r, _x, vx) and pitch for the forward axis (pos_f, vel_f, _z, vz),
-    # each clamped to its limit. Hold height with ALT_KP as before, then send_pcmd(...).
+    # For each horizontal axis, the velocity you command is the trajectory's own velocity
+    # (feedforward) plus a correction that closes any position gap:
+    #   v_right   = vel_r + KP_POS * (pos_r - _x)
+    #   v_forward = vel_f + KP_POS * (pos_f - _z)
+    # For height, turn the altitude error into a vertical velocity:
+    #   v_up = ALT_KP * (TARGET_HEIGHT - neo_lab.height(drone))
+    # Then send all three at once with neo_lab.send_velocity(drone, v_right, v_up, v_forward).
+    # (send_velocity commands velocity in m/s -- the same call works on the real drone. See
+    # the README, "Commanding velocity.")
 
     ###### END PUT CODE HERE #########
     ##################################

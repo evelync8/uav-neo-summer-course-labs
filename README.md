@@ -203,7 +203,7 @@ Multi-axis flight labs that build on Week 3 control.
 |--------|------|-------|
 | `module1_waypoint`  | simulator | Dead-reckon position and fly to a 3-axis waypoint |
 | `module2_patterns`  | simulator | Sequence waypoints to fly a square |
-| `module3_trajectory`| simulator | Track a timed trajectory, a cubic-spline gate course (drone racing), and orbit a point with a geometric controller |
+| `module3_trajectory`| simulator | Velocity-commanded trajectory tracking: a timed segment, a cubic-spline waypoint course (drone racing), and orbiting a point |
 
 Each module folder has its own `README.md` with the details.
 

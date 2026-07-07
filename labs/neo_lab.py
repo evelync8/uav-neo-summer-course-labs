@@ -144,6 +144,49 @@ def world_position(drone):
     return tuple(float(v) for v in drone.physics.get_position())
 
 
+# ── Velocity commands (portable to the real drone) ────────────────────────────────────
+# The labs command a body-frame velocity in m/s. On the real drone that maps straight to
+# the ROS2 driver's velocity setpoint (its send_pcmd publishes /mux/cmd_vel). The sim's
+# send_pcmd is a TILT command instead, so on the sim a small inner loop turns the velocity
+# error into tilt -- the job the real flight controller does in hardware. Writing the labs
+# against send_velocity keeps the student controller identical across sim and real.
+
+REAL_MAX_SPEED = 2.0     # m/s mapped to a full normalized command; MUST match the mux config
+_SIM_VEL_KP = 0.3        # sim inner loop: tilt per (m/s) of horizontal velocity error
+_SIM_VZ_MPS = 12.0       # sim throttle scale: ~12 m/s of vertical velocity per unit throttle
+_SIM_TILT_LIMIT = 0.5   # keep tilt gentle: the sim's attitude response is fast and high-authority
+_SIM_THROTTLE_LIMIT = 0.5
+
+
+def _is_sim(drone):
+    return "Sim" in type(drone.flight).__name__
+
+
+def send_velocity(drone, v_right, v_up, v_forward, yaw_rate=0.0):
+    """Command a body-frame velocity in m/s: (v_right, v_up, v_forward) plus a yaw rate.
+
+    Same call on the sim and the real drone; only the mapping below differs. On real the
+    velocity goes straight to the cmd_vel setpoint; on the sim an inner P loop converts the
+    velocity error to tilt (and vertical velocity to throttle).
+    """
+    if _is_sim(drone):
+        vx, vy, vz = (float(v) for v in drone.physics.get_linear_velocity())  # right, up, fwd
+        pitch = uav_utils.clamp(_SIM_VEL_KP * (v_forward - vz),
+                                -_SIM_TILT_LIMIT, _SIM_TILT_LIMIT)
+        roll = uav_utils.clamp(_SIM_VEL_KP * (v_right - vx),
+                               -_SIM_TILT_LIMIT, _SIM_TILT_LIMIT)
+        throttle = uav_utils.clamp(v_up / _SIM_VZ_MPS,
+                                   -_SIM_THROTTLE_LIMIT, _SIM_THROTTLE_LIMIT)
+        drone.flight.send_pcmd(pitch, roll, yaw_rate, throttle)
+    else:
+        drone.flight.send_pcmd(
+            uav_utils.clamp(v_forward / REAL_MAX_SPEED, -1.0, 1.0),
+            uav_utils.clamp(v_right / REAL_MAX_SPEED, -1.0, 1.0),
+            yaw_rate,
+            uav_utils.clamp(v_up / REAL_MAX_SPEED, -1.0, 1.0),
+        )
+
+
 class Launcher:
     """
     Arms the drone and climbs to `target_height` meters above the ground measured

@@ -3,8 +3,9 @@ MIT BWSI Autonomous Drone Racing Course - UAV Neo
 GNU General Public License v3.0
 
 Week 4 · Module 3 — Step 1: Track a Timed Segment  (SOLUTION)
-Follow a smooth position-vs-time trajectory from start to a goal, tracking both the moving
-position and its velocity (feedforward). Position is dead-reckoned from velocity, so it drifts.
+Follow a smooth position-vs-time trajectory from start to a goal by commanding VELOCITY:
+feed forward the trajectory's velocity, correct position error on top. Position is
+dead-reckoned from velocity, so it drifts.
 """
 
 import drone_core
@@ -25,12 +26,8 @@ GOAL_RIGHT = 2.0
 GOAL_FWD = 6.0
 TARGET_HEIGHT = 3.0
 DURATION = 5.0        # seconds to fly the segment
-KP_POS = 0.15         # position gain: pull toward where you should be now
-KV_POS = 0.5          # velocity gain: match the trajectory's speed (feedforward + damping)
-ALT_KP = 0.12
-ROLL_LIMIT = 0.25
-PITCH_LIMIT = 0.25
-THROTTLE_LIMIT = 0.5
+KP_POS = 0.6          # position error -> velocity (1/s): how hard to close a position gap
+ALT_KP = 0.6          # altitude error -> vertical velocity (1/s)
 
 # -- Module-level state -----------------------------------------------------
 _t = 0.0
@@ -76,13 +73,10 @@ def update(drone):
     _x += vx * dt
     _z += vz * dt
     pos_r, pos_f, vel_r, vel_f = trajectory(_t)
-    roll = uav_utils.clamp(KP_POS * (pos_r - _x) + KV_POS * (vel_r - vx),
-                           -ROLL_LIMIT, ROLL_LIMIT)
-    pitch = uav_utils.clamp(KP_POS * (pos_f - _z) + KV_POS * (vel_f - vz),
-                            -PITCH_LIMIT, PITCH_LIMIT)
-    throttle = uav_utils.clamp(ALT_KP * (TARGET_HEIGHT - neo_lab.height(drone)),
-                               -THROTTLE_LIMIT, THROTTLE_LIMIT)
-    drone.flight.send_pcmd(pitch, roll, 0, throttle)
+    v_right = vel_r + KP_POS * (pos_r - _x)
+    v_forward = vel_f + KP_POS * (pos_f - _z)
+    v_up = ALT_KP * (TARGET_HEIGHT - neo_lab.height(drone))
+    neo_lab.send_velocity(drone, v_right, v_up, v_forward)
     err = ((pos_r - _x) ** 2 + (pos_f - _z) ** 2) ** 0.5
     _max_err = max(_max_err, err)
     if _t >= DURATION:
