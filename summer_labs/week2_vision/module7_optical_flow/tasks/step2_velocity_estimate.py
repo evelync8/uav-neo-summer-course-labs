@@ -89,10 +89,10 @@ def update(drone):
 
             if new_pts is not None and status is not None:
                 keep = status.flatten() == 1
-                good_new = new_pts[keep].reshape(-1, 2)
-                good_old = _prev_pts[keep].reshape(-1, 2)
-                if len(good_new) > 0:
-                    disp = good_new - good_old
+                new = new_pts[keep].reshape(-1, 2)
+                old = _prev_pts[keep].reshape(-1, 2)
+                if len(new) > 0:
+                    disp = new - old
                     mean_dx = float(disp[:, 0].mean())
                     mean_dy = float(disp[:, 1].mean())
                     height = max(neo_lab.height(drone), 0.1)
@@ -100,12 +100,12 @@ def update(drone):
                     _est = (-mean_dx * mpp / _interval, -mean_dy * mpp / _interval)
                     vx, vy, vz = drone.physics.get_linear_velocity()
                     _true = (float(vx), float(vz))
-                _prev_pts = good_new.reshape(-1, 1, 2)
+                _prev_pts = new.reshape(-1, 1, 2)
         _prev_gray = gray
         _interval = 0.0
     if (_timer >= RUN_TIME):
         drone.flight.stop()
-        print(f"[Step 2] flow est (x,z)=({_est[0]:.2f},{_est[1]:.2f}) | true (x,z)=({_true[0]:.2f},{_true[1]:.2f}) m/s")
+        print(f"flow est (x,z)=({_est[0]:.2f},{_est[1]:.2f}) | true (x,z)=({_true[0]:.2f},{_true[1]:.2f}) m/s")
         _done = True
 
 

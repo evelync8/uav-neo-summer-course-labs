@@ -70,7 +70,8 @@ def update(drone):
     # OpenCV sparse optical-flow functions.
 
     drone.flight.send_pcmd(PROBE_PITCH, 0,0,0)
-    _timer += drone.get_delta_time()
+    dt = drone.get_delta_time()
+    _timer += dt
     _frame += 1
     if(_frame % SKIP==0):
         image = drone.camera.get_downward_image()
@@ -79,19 +80,18 @@ def update(drone):
             _prev_pts = cv2.goodFeaturesToTrack(gray, **FEATURE_PARAMS)
         else:
             new_pts, status, _err = cv2.calcOpticalFlowPyrLK(_prev_gray, gray, _prev_pts, None, **LK_PARAMS)
-
             if new_pts is not None and status is not None:
                 keep = status.flatten() == 1
-                good_new = new_pts[keep].reshape(-1, 2)
-                good_old = _prev_pts[keep].reshape(-1, 2)
-                if len(good_new) > 0:
-                    disp = good_new - good_old
+                new = new_pts[keep].reshape(-1, 2)
+                old = _prev_pts[keep].reshape(-1, 2)
+                if len(new) > 0:
+                    disp = new - old
                     _last_mag = float(np.mean(np.sqrt(disp[:, 0] ** 2 + disp[:, 1] ** 2)))
-                _prev_pts = good_new.reshape(-1, 1, 2)
+                _prev_pts = new.reshape(-1, 1, 2)
         _prev_gray = gray
     if (_timer >= HOVER_TIME):
         drone.flight.stop()
-        print(f"[Step 1] magnitude: {_last_mag:.3f} px/interval")
+        print(f"magnitude: {_last_mag:.3f} px/interval")
         _done = True
 
     ###### END PUT CODE HERE #########

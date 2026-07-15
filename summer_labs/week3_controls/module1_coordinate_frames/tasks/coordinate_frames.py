@@ -21,7 +21,16 @@ def euler_to_rot(roll, pitch, yaw):
     """
     ##################################
     #### START PUT CODE HERE #########
-    R = np.eye(3)
+
+    cos_roll, sin_roll = np.cos(roll), np.sin(roll)
+    cos_pitch, sin_pitch = np.cos(pitch), np.sin(pitch)
+    cos_yaw, sin_yaw = np.cos(yaw), np.sin(yaw)
+    
+    Rx = np.array([1,0,0], [0, cos_roll, -sin_roll], [0, sin_roll, cos_roll])
+    Ry = np.array([cos_pitch, 0, sin_pitch], [0,1,0], [-sin_pitch, 0, cos_pitch])
+    Rz = np.array([cos_yaw, -sin_yaw, 0], [sin_yaw, cos_yaw, 0], [0,0,1])
+    R = np.array(Rx, Ry, Rz)
+
     ###### END PUT CODE HERE #########
     ##################################
     return R

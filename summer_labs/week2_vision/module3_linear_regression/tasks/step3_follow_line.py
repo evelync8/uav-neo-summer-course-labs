@@ -29,7 +29,6 @@ MAX_ROLL      = 0.25     # strafe authority for centering
 FOLLOW_TIME   = 12.0     # seconds to follow before landing
 IMAGE_CENTER  = 320      # 640-wide image -> center column
 _prev_offset  = 0.0     # previous pixel offset for derivative calculation
-yaw_multiplier = 0.25  # multiplier for yaw control based on offset
 kD = .002
 kP = .6
 
@@ -81,7 +80,6 @@ def update(drone):
     image = drone.camera.get_downward_image()
     mask = neo_lab.bright_mask(image, V_MIN)
     points = np.argwhere(mask)
-    m, b = fit_line(mask)
     count = len(points)
 
     if(count < MIN_PIXELS):
@@ -94,7 +92,6 @@ def update(drone):
 
 
         roll = uav_utils.clamp(offset * MAX_ROLL*kP + derivative*kD, -MAX_ROLL, MAX_ROLL)
-        # yaw = uav_utils.clamp(m*yaw_multiplier, -1, 1)
         drone.flight.send_pcmd(FORWARD_PITCH, roll, 0, 0)
     if _timer >= FOLLOW_TIME:
         drone.flight.stop()
