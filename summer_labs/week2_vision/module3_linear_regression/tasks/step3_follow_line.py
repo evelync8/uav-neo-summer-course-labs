@@ -28,6 +28,11 @@ FORWARD_PITCH = 0.18     # constant forward speed
 MAX_ROLL      = 0.25     # strafe authority for centering
 FOLLOW_TIME   = 12.0     # seconds to follow before landing
 IMAGE_CENTER  = 320      # 640-wide image -> center column
+_prev_offset  = 0.0     # previous pixel offset for derivative calculation
+yaw_multiplier = 0.25  # multiplier for yaw control based on offset
+kD = .002
+kP = .6
+
 
 # -- Module-level state -----------------------------------------------------
 _timer = 0.0
@@ -38,9 +43,21 @@ def reset():
     _timer = 0.0
     _done  = False
 
+def fit_line(points):
+    """Least-squares fit of y = m*x + b. points is the (row, col) array from
+    np.argwhere, so column = x and row = y. See the README (Key terms) for the fit."""
+    ##################################
+    #### START PUT CODE HERE #########
+    # m, b = 0.0, 0.0
+
+    # x = points[:]
+    m, b = np.polyfit(points[1], points[0], 1)
+    ###### END PUT CODE HERE #########
+    ##################################
+    return m, b
 
 def update(drone):
-    global _timer, _done
+    global _timer, _done, _prev_offset
     if _done:
         return True
     ##################################
@@ -59,10 +76,12 @@ def update(drone):
     # hold position rather than steering on noise -- but keep the timer running every
     # frame and finish after FOLLOW_TIME regardless, so losing the edge never hangs.
 
-    _timer += drone.get_delta_time()
+    dt = drone.get_delta_time()
+    _timer += dt
     image = drone.camera.get_downward_image()
     mask = neo_lab.bright_mask(image, V_MIN)
     points = np.argwhere(mask)
+    m, b = fit_line(mask)
     count = len(points)
 
     if(count < MIN_PIXELS):
@@ -70,15 +89,18 @@ def update(drone):
     else: 
         edge = points[:, 1].mean()
         offset = (edge - IMAGE_CENTER)/IMAGE_CENTER
-        roll = uav_utils.clamp(offset * MAX_ROLL, -MAX_ROLL, MAX_ROLL)
+        derivative = (offset-_prev_offset)/dt
+        _prev_offset = offset
+
+
+        roll = uav_utils.clamp(offset * MAX_ROLL*kP + derivative*kD, -MAX_ROLL, MAX_ROLL)
+        # yaw = uav_utils.clamp(m*yaw_multiplier, -1, 1)
         drone.flight.send_pcmd(FORWARD_PITCH, roll, 0, 0)
     if _timer >= FOLLOW_TIME:
         drone.flight.stop()
         print("Done")
         _done = True
-        
-
-
+       
 
     ###### END PUT CODE HERE #########
     ##################################
