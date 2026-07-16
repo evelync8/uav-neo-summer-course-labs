@@ -26,10 +26,10 @@ def euler_to_rot(roll, pitch, yaw):
     cos_pitch, sin_pitch = np.cos(pitch), np.sin(pitch)
     cos_yaw, sin_yaw = np.cos(yaw), np.sin(yaw)
     
-    Rx = np.array([1,0,0], [0, cos_roll, -sin_roll], [0, sin_roll, cos_roll])
-    Ry = np.array([cos_pitch, 0, sin_pitch], [0,1,0], [-sin_pitch, 0, cos_pitch])
-    Rz = np.array([cos_yaw, -sin_yaw, 0], [sin_yaw, cos_yaw, 0], [0,0,1])
-    R = np.array(Rx, Ry, Rz)
+    Rx = np.array([[1,0,0], [0, cos_roll, -sin_roll], [0, sin_roll, cos_roll]])
+    Ry = np.array([[cos_pitch, 0, sin_pitch], [0,1,0], [-sin_pitch, 0, cos_pitch]])
+    Rz = np.array([[cos_yaw, -sin_yaw, 0], [sin_yaw, cos_yaw, 0], [0,0,1]])
+    R = Rx@Ry@Rz
 
     ###### END PUT CODE HERE #########
     ##################################
@@ -44,10 +44,13 @@ def rot_to_quat(R):
     """
     ##################################
     #### START PUT CODE HERE #########
-    w = 1.0
-    x = 0.0
-    y = 0.0
-    z = 0.0
+
+    w = np.sqrt(1+np.trace(R)) * 0.5
+    w4 = w*4.0
+    x = (R[2,1]-R[1,2])/w4
+    y = (R[0,2]-R[2,0])/w4
+    z = (R[1,0]-R[0,1])/w4
+
     ###### END PUT CODE HERE #########
     ##################################
     return np.array([x, y, z, w])
@@ -57,12 +60,15 @@ def rot_to_quat(R):
 def enu_to_ned(vec):
     """
     Convert a vector from ENU (East, North, Up) to NED (North, East, Down).
-    See the README (Key terms) for how the two conventions relate.
+    See the README (Key terms) for how the two 
+    conventions relate.
     """
     e, n, u = vec
     ##################################
     #### START PUT CODE HERE #########
-    result = np.array([0.0, 0.0, 0.0])  # YOUR CODE HERE
+
+    result = np.array([n,e, -1*u])
+
     ###### END PUT CODE HERE #########
     ##################################
     return result
@@ -76,8 +82,10 @@ def thrust_allocation(mass, k_f, total_thrust):
     """
     ##################################
     #### START PUT CODE HERE #########
-    per = 0.0    # YOUR CODE HERE
-    omega = 0.0  # YOUR CODE HERE
+
+    per = total_thrust/4  
+    omega = np.sqrt(per/k_f) # YOUR CODE HERE
+
     ###### END PUT CODE HERE #########
     ##################################
     return omega, per
@@ -87,7 +95,9 @@ def hover_thrust(mass, g=9.81):
     """Total thrust (N) needed to hover (see README, Key terms)."""
     ##################################
     #### START PUT CODE HERE #########
-    return 0.0  # YOUR CODE HERE
+
+    return mass*g  # YOUR CODE HERE
+
     ###### END PUT CODE HERE #########
     ##################################
 

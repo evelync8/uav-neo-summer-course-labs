@@ -49,6 +49,24 @@ def update(drone):
     # vertical-velocity command; clamp it to +/-THROTTLE_LIMIT. Finish (set _done) once
     # the height stays within TOL for HOLD_TIME. See the README (Proportional Control).
 
+    
+
+
+    cur_height = neo_lab.height(drone)
+    error = TARGET_HEIGHT - cur_height
+    throttle = uav_utils.clamp(error*KP, -THROTTLE_LIMIT, THROTTLE_LIMIT)
+    drone.flight.send_pcmd(0,0,0,throttle)
+    print(f"Target height: {TARGET_HEIGHT} | Current height: {cur_height}")
+    
+    if(abs(error)<=TOL):
+        dt = drone.get_delta_time()
+        _hold += dt
+        if(_hold >= HOLD_TIME):
+            drone.flight.stop()
+            _done = True
+        
+
+
     ###### END PUT CODE HERE #########
     ##################################
     return _done

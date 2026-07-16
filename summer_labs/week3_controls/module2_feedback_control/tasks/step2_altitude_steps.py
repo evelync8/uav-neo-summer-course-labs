@@ -21,7 +21,7 @@ import neo_lab
 
 # -- Constants --------------------------------------------------------------
 SETPOINTS = [3.0, 6.0, 2.0]   # meters above ground, in order
-KP = 0.2
+KP = 0.15
 THROTTLE_LIMIT = 0.5
 TOL = 0.4
 HOLD_TIME = 2.0
@@ -51,6 +51,25 @@ def update(drone):
     # This is your Step 1 proportional controller with one change: the target is
     # SETPOINTS[_index] instead of a fixed value, and you advance _index after holding
     # each one. Stop and set _done once _index runs past the end of the list.
+
+    cur_height = neo_lab.height(drone)
+
+    error = SETPOINTS[_index] - cur_height
+    throttle = uav_utils.clamp(error*KP, -THROTTLE_LIMIT, THROTTLE_LIMIT)
+    drone.flight.send_pcmd(0,0,0,throttle)
+    print(f"Target height: {SETPOINTS[_index]} | Current height: {cur_height}")
+
+    if(abs(error)<=TOL):
+        dt = drone.get_delta_time()
+        _hold += dt
+        if(_hold >= HOLD_TIME):
+            if(_index >=2):
+                drone.flight.stop()
+                _done = True
+            else:
+                _index +=1
+                _hold = 0
+
 
     ###### END PUT CODE HERE #########
     ##################################
