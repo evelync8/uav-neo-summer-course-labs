@@ -33,7 +33,7 @@ def reset():
     _timer = 0.0
     _done = False
 
-
+ 
 def update(drone):
     global _timer, _done
     if _done:
