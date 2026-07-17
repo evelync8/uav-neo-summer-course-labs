@@ -20,7 +20,7 @@ while _os.path.basename(_d) != "labs" and _os.path.dirname(_d) != _d:
 if _d not in _sys.path:
     _sys.path.insert(0, _d)
 import neo_lab
-
+ 
 # -- Constants --------------------------------------------------------------
 GOAL_RIGHT = 2.0
 GOAL_FWD = 6.0
