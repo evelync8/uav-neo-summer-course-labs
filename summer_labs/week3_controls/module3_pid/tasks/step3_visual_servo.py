@@ -26,9 +26,9 @@ import neo_lab
 V_MIN = 200
 MIN_AREA = 500
 COL_CENTER = 320
-KP = 0.35
-KI = 0.0
-KD = 0.2
+KP = 0.18 ##.35
+KI = 0.05
+KD = 0.02
 MAX_YAW = 0.25
 SEARCH_YAW = 0.2
 CENTER_TOL = 0.15    # normalized error considered centered
@@ -45,7 +45,7 @@ def pid_control(err, err_int, err_dot, kp, ki, kd):
     """Return the PID controller output from the three gain terms (see README, Key terms)."""
     ##################################
     #### START PUT CODE HERE #########
-    output = 0.0
+    output = KP*err + KI*err_int + KD*err_dot
     ###### END PUT CODE HERE #########
     ##################################
     return output
@@ -77,6 +77,40 @@ def update(drone):
     # between gates. Turn the gate's horizontal offset from the image center into a
     # normalized error, PID it to a yaw command clamped to MAX_YAW, and sweep at SEARCH_YAW
     # when no gate is in view. See the README (Key terms) and Week 2 for finding gates.
+
+    image = drone.camera.get_color_image()
+    dt = drone.get_delta_time()
+
+    if (_target_col is None):
+        gate = neo_lab.gate_nearest_center(image, V_MIN, MIN_AREA)
+    else:
+        gate = neo_lab.gate_nearest_to(image, _target_col, V_MIN, MIN_AREA)
+    
+    if(gate is None):
+        drone.flight.send_pcmd(0,0,SEARCH_YAW,0)
+        _target_col = None
+        _err_int = 0.0
+        _hold = 0.0
+        return False
+    
+    row, col = uav_utils.get_contour_center(gate)
+    _target_col = col
+
+    err_col = (col-COL_CENTER)/COL_CENTER
+    _err_int = uav_utils.clamp(_err_int + err_col * dt, -1, 1)
+    _err_dot = (err_col - _prev_err)/dt
+    _prev_err = err_col
+
+    yaw = uav_utils.clamp(pid_control(err_col, _err_int, _err_dot, KP, KI, KD), -MAX_YAW, MAX_YAW)
+
+    drone.flight.send_pcmd(0,0,yaw,0)
+
+    if(abs(err_col)<=CENTER_TOL):
+        _hold += dt
+        if(_hold >= HOLD_TIME):
+            drone.flight.stop()
+            _hold = 0.0
+            _done = True
 
     ###### END PUT CODE HERE #########
     ##################################

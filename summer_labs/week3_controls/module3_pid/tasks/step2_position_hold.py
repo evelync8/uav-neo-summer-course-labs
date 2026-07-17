@@ -23,9 +23,9 @@ import neo_lab
 # -- Constants --------------------------------------------------------------
 TARGET_DIST = 4.0    # meters forward
 TARGET_HEIGHT = 3.0  # hold launch height
-KP = 0.15
-KI = 0.0
-KD = 0.5    # strong velocity damping to avoid overshoot
+KP = 0.18 ##.15
+KI = 0.05
+KD = 0.02 #.5    # strong velocity damping to avoid overshoot
 PITCH_LIMIT = 0.25
 ALT_KP = 0.12
 THROTTLE_LIMIT = 0.5
@@ -40,12 +40,13 @@ _prev_err = 0.0
 _t = 0.0
 _hold = 0.0
 _done = False
+distance = 0
 
 def pid_control(err, err_int, err_dot, kp, ki, kd):
     """Return the PID controller output from the three gain terms (see README, Key terms)."""
     ##################################
     #### START PUT CODE HERE #########
-    output = 0.0
+    output = KP*err + KI*err_int + KD*err_dot
     ###### END PUT CODE HERE #########
     ##################################
     return output
@@ -61,7 +62,7 @@ def reset():
 
 
 def update(drone):
-    global _pos, _err_int, _prev_err, _t, _hold, _done
+    global _pos, _err_int, _prev_err, _t, _hold, _done, distance
     if _done:
         return True
     ##################################
@@ -73,6 +74,40 @@ def update(drone):
     # use a proportional term (ALT_KP) on height to hold TARGET_HEIGHT. Count as arrived
     # only after MIN_TRAVEL, once speed drops below SETTLE_SPEED for HOLD_TIME. See the
     # README (Key terms) for dead reckoning and the PID law.
+    dt = drone.get_delta_time()
+    vel = drone.physics.get_linear_velocity()
+    distance += vel[2]*dt ## x = right (0), z = forward (2) 
+    _pos = distance
+
+    error = TARGET_DIST-_pos
+    _err_int += error*dt
+    _err_dot = -vel[2]
+    _prev_err = error
+
+    cur_height = neo_lab.height(drone)
+    error_height = TARGET_HEIGHT-cur_height
+
+    pitch = uav_utils.clamp(pid_control(error, _err_int, _err_dot, KP, KI, KD), -PITCH_LIMIT, PITCH_LIMIT)
+    throttle = uav_utils.clamp(error_height*ALT_KP, -THROTTLE_LIMIT, THROTTLE_LIMIT)
+
+    drone.flight.send_pcmd(pitch, 0,0,throttle)
+
+    _t += dt
+    if (_t >= MIN_TRAVEL and vel[2]<= SETTLE_SPEED):
+        _hold += dt
+        if(_hold >= HOLD_TIME):
+            drone.flight.stop()
+            _t = 0.0
+            _hold = 0.0
+            _done = True
+        
+
+
+
+
+
+
+
 
     ###### END PUT CODE HERE #########
     ##################################

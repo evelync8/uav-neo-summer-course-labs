@@ -50,17 +50,17 @@ def reference(t):
     A raised-cosine so it starts at BASE_HEIGHT with zero velocity (no launch jerk).
     This is the drone's "trajectory" in one dimension; Week 4 extends it to a path.
     """
-    w = 2.0 * math.pi / PERIOD
-    r = BASE_HEIGHT + AMPLITUDE * (1.0 - math.cos(w * t))
-    r_dot = AMPLITUDE * w * math.sin(w * t)
-    return r, r_dot
+    w = 2.0 * math.pi / PERIOD ##frequency
+    r = BASE_HEIGHT + AMPLITUDE * (1.0 - math.cos(w * t)) ##position 
+    r_dot = AMPLITUDE * w * math.sin(w * t) ## velocity 
+    return r, r_dot 
 
 
 def pid_control(err, err_int, err_dot, kp, ki, kd):
     """Return the PID controller output from the three gain terms (see README, Key terms)."""
     ##################################
     #### START PUT CODE HERE #########
-    output = 0.0
+    output = KP*err + KI*err_int + KD*err_dot
     ###### END PUT CODE HERE #########
     ##################################
     return output
@@ -94,6 +94,21 @@ def update(drone):
     # to build. Sum feedback + feedforward, clamp to +/-THROTTLE_LIMIT, and send it as
     # throttle. Update _max_err with the largest abs(error) so far. See the README
     # ("Tracking a moving target") for why the feedforward term removes the lag.
+
+    err_height = r - neo_lab.height(drone)
+    
+    _err_int = uav_utils.clamp(err_height*dt + _err_int, -INT_CLAMP, INT_CLAMP)
+    _err_dot = (err_height-_prev_err)/dt
+    _prev_err = err_height
+
+    feedback = pid_control(err_height, _err_int, _err_dot, KP, KI, KD)
+    feedforward = KFF*r_dot
+
+
+    throttle = uav_utils.clamp(feedback + feedforward, -THROTTLE_LIMIT, THROTTLE_LIMIT)
+    drone.flight.send_pcmd(0,0,0,throttle)
+    _max_err = max(_max_err, abs(err_height))
+
 
     ###### END PUT CODE HERE #########
     ##################################
