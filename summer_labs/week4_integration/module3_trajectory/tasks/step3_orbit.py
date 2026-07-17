@@ -30,7 +30,7 @@ RADIUS = 2.0
 PERIOD = 6.0          # seconds per revolution at full speed
 REVOLUTIONS = 2
 TARGET_HEIGHT = 3.0
-KP_POS = 0.6          # position error -> velocity (1/s)
+KP_POS = 0.3 #0.6          # position error -> velocity (1/s)
 ALT_KP = 0.6          # altitude error -> vertical velocity (1/s)
 
 _W = 2.0 * math.pi / PERIOD     # full-speed angular rate (rad/s)
@@ -95,7 +95,7 @@ def update(drone):
     vx, vy, vz = drone.physics.get_linear_velocity()
     _x += vx * dt
     _z += vz * dt
-    pos_r, pos_f, vel_r, vel_f = trajectory(_t)
+    pos_x, pos_z, vel_x, vel_z = trajectory(_t)
     ##################################
     #### START PUT CODE HERE #########
 
@@ -111,6 +111,13 @@ def update(drone):
     # centripetal acceleration yourself -- the velocity controller (the real drone's
     # autopilot) produces it to hold the commanded velocity. See the README
     # ("Orbiting a point: the geometric controller").
+
+    v_x   = vel_x + KP_POS * (pos_x - _x)
+    v_z = vel_z + KP_POS * (pos_z - _z)
+
+    v_up = ALT_KP * (TARGET_HEIGHT - neo_lab.height(drone))
+    neo_lab.send_velocity(drone, v_x, v_up, v_z)
+
 
     ###### END PUT CODE HERE #########
     ##################################

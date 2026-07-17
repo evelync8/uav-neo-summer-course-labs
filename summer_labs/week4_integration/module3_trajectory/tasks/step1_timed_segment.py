@@ -26,7 +26,7 @@ GOAL_RIGHT = 2.0
 GOAL_FWD = 6.0
 TARGET_HEIGHT = 3.0
 DURATION = 5.0        # seconds to fly the segment
-KP_POS = 0.6          # position error -> velocity (1/s): how hard to close a position gap
+KP_POS = 0.3 #0.6          # position error -> velocity (1/s): how hard to close a position gap
 ALT_KP = 0.6          # altitude error -> vertical velocity (1/s)
 
 # -- Module-level state -----------------------------------------------------
@@ -72,7 +72,7 @@ def update(drone):
     vx, vy, vz = drone.physics.get_linear_velocity()
     _x += vx * dt
     _z += vz * dt
-    pos_r, pos_f, vel_r, vel_f = trajectory(_t)
+    pos_x, pos_z, vel_x, vel_z = trajectory(_t)
     ##################################
     #### START PUT CODE HERE #########
 
@@ -88,9 +88,16 @@ def update(drone):
     # (send_velocity commands velocity in m/s -- the same call works on the real drone. See
     # the README, "Commanding velocity.")
 
+    v_x   = vel_x + KP_POS * (pos_x - _x)
+    v_z = vel_z + KP_POS * (pos_z - _z)
+
+    v_up = ALT_KP * (TARGET_HEIGHT - neo_lab.height(drone))
+    neo_lab.send_velocity(drone, v_x, v_up, v_z)
+
+
     ###### END PUT CODE HERE #########
     ##################################
-    err = ((pos_r - _x) ** 2 + (pos_f - _z) ** 2) ** 0.5
+    err = ((pos_x - _x) ** 2 + (pos_z - _z) ** 2) ** 0.5
     _max_err = max(_max_err, err)
     if _t >= DURATION:
         drone.flight.stop()

@@ -24,7 +24,7 @@ import neo_lab
 WAYPOINTS = [(0.0, 0.0), (2.0, 3.0), (-1.0, 5.0), (2.0, 7.0), (0.0, 9.0)]  # (right, forward)
 SEG_TIME = 3.5        # seconds per waypoint-to-waypoint segment
 TARGET_HEIGHT = 3.0
-KP_POS = 0.6          # position error -> velocity (1/s)
+KP_POS = 0.3 #0.6          # position error -> velocity (1/s)
 ALT_KP = 0.6          # altitude error -> vertical velocity (1/s)
 _VEL_DT = 0.02        # finite-difference step for reading the trajectory's velocity
 
@@ -70,7 +70,12 @@ def hermite(p0, m0, p1, m1, s):
     # Combine the four Hermite basis functions of s with p0, m0, p1, m1 to return one
     # blended value. See the README ("Building a smooth path") for the four basis
     # functions h00, h10, h01, h11 and how they weight the endpoints and tangents.
-    result = p0
+    h00 = 2*s**3 -3*s**2 + 1
+    h10 = s**3 - 2*s**2 + s
+    h01 = -2*s**3 + 3*s**2
+    h11 = s**3 - s**2
+    
+    result = h00*p0 + h10*m0 + h01*p1 + h11*m1
     ###### END PUT CODE HERE #########
     ##################################
     return result
