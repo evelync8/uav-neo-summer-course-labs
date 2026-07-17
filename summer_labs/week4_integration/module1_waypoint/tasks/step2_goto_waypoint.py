@@ -25,8 +25,8 @@ import neo_lab
 TARGET_RIGHT = 2.0
 TARGET_FWD = 4.0
 TARGET_HEIGHT = 3.0
-KP_POS = 0.15
-KD_POS = 0.5            # brake with velocity so you don't overshoot
+KP_POS = 0.3 #0.15
+KD_POS = 0.05 #0.5           # brake with velocity so you don't overshoot
 ALT_KP = 0.12
 ROLL_LIMIT = 0.25
 PITCH_LIMIT = 0.25
@@ -66,6 +66,70 @@ def update(drone):
     # velocity, which brakes you): roll for the right error, pitch for the forward error.
     # Hold height with a proportional term (ALT_KP). Clamp each to its limit. Finish when
     # both horizontal errors are under POS_TOL and speed is under SETTLE_SPEED for HOLD_TIME.
+
+    vx, vy, vz = drone.physics.get_linear_velocity()
+    dt = drone.get_delta_time()
+
+    _x += vx * dt
+    _z += vz * dt
+
+    #altitute
+    cur_height = neo_lab.height(drone)
+    err_height = cur_height - TARGET_HEIGHT
+    throttle = uav_utils.clamp(err_height*ALT_KP, -THROTTLE_LIMIT, THROTTLE_LIMIT)
+
+    # x (right)
+    err_x = TARGET_RIGHT - _x
+    roll = uav_utils.clamp(err_x*KP_POS - KD_POS*vx, -ROLL_LIMIT, ROLL_LIMIT)
+
+    # z (fwd)
+    err_z = TARGET_FWD - _z
+    pitch = uav_utils.clamp(err_z*KP_POS - KD_POS*vz, -PITCH_LIMIT, PITCH_LIMIT)
+
+    speed = (vx ** 2 + vz ** 2) ** 0.5
+    drone.flight.send_pcmd(pitch, roll, 0, throttle)
+    print(f"err_x: {err_x} | err_z: {err_z}")
+
+    if(abs(err_x) <= POS_TOL and abs(err_z) <= POS_TOL and speed <= SETTLE_SPEED):
+        
+        _hold += dt
+        if(_hold >= HOLD_TIME):
+            drone.flight.stop()
+            _done = True
+    # if abs(err_x) < POS_TOL and abs(err_z) < POS_TOL and speed < SETTLE_SPEED:
+    #     _hold += dt
+    # else:
+    #     _hold = 0.0
+    # if _hold >= HOLD_TIME:
+    #     drone.flight.stop()
+    #     print(f"[Step 2] Arrived: right={_x:.2f} forward={_z:.2f} m")
+    #     _done = True
+    # return _done
+    
+
+    # if(abs(err_x) <= POS_TOL):
+    #     if(abs(err_z) <= POS_TOL):
+    #         print("X and Z within error")
+    #         print(f"X: {_x} | Z: {_z} | Height: {cur_height}")
+    #         if(speed <= SETTLE_SPEED):
+    #             _hold += dt
+    #             if(_hold >= HOLD_TIME):
+    #                 drone.flight.stop()
+    #                 _done = True
+    #     else:
+    #         print("X within error, Z not within error")
+    #         drone.flight.send_pcmd(0,roll,0,throttle)
+    # else:
+    #     if(abs(err_z) <= POS_TOL):
+    #         print("X not within error, Z within error")
+    #         drone.flight.send_pcmd(pitch, 0,0,throttle)
+    #     else:
+    #         print("X and Z not within error")
+    #         drone.flight.send_pcmd(pitch, roll, 0, throttle)
+
+        
+
+
 
     ###### END PUT CODE HERE #########
     ##################################
