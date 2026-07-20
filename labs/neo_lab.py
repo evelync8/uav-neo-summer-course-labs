@@ -275,13 +275,16 @@ def record(drone, **extra):
     _recorder.log(**row)
 
 
-def run_module(title, steps, launch_height=3.0):
+def run_module(title, steps, launch_height=3.0, autostart=False):
     """Standard lab orchestrator: create the drone, arm and climb, then run each step in
     order and land. `steps` is a list of (label, module) where each module has reset()
     and update(drone) -> done. Records telemetry when NEO_RECORD is set.
 
     Each lab's main.py / main_solution.py is a thin wrapper that imports its step modules
     and calls this, so the orchestration lives in one place.
+
+    autostart runs the program without the START button / a game controller (the real
+    drone's safety pilot still gates motion via OFFBOARD; stop with Ctrl-C).
     """
     import drone_core
     drone = drone_core.create_drone()
@@ -318,4 +321,4 @@ def run_module(title, steps, launch_height=3.0):
             print(f"[{steps[state['i']][0]}] height={height(drone):.2f}m")
 
     drone.set_start_update(start, update, update_slow)
-    drone.go()
+    drone.go(autostart)
