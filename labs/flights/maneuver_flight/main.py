@@ -30,4 +30,5 @@ neo_lab.run_module(
     [("Maneuver", step_maneuver)],
     launch_height=LAUNCH_HEIGHT_M,
     autostart=True,
+    led_color=(0, 200, 255),   # blink cyan while flying
 )

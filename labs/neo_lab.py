@@ -275,7 +275,10 @@ def record(drone, **extra):
     _recorder.log(**row)
 
 
-def run_module(title, steps, launch_height=3.0, autostart=False):
+LED_BLINK_PERIOD_S = 0.5   # full on+off cycle of the flying indicator
+
+
+def run_module(title, steps, launch_height=3.0, autostart=False, led_color=None):
     """Standard lab orchestrator: create the drone, arm and climb, then run each step in
     order and land. `steps` is a list of (label, module) where each module has reset()
     and update(drone) -> done. Records telemetry when NEO_RECORD is set.
@@ -285,21 +288,43 @@ def run_module(title, steps, launch_height=3.0, autostart=False):
 
     autostart runs the program without the START button / a game controller (the real
     drone's safety pilot still gates motion via OFFBOARD; stop with Ctrl-C).
+
+    led_color, if given as an (r, g, b) tuple, blinks the LED strip while the drone is
+    flying and turns it off on landing. Leave it None to let a step drive the strip
+    itself (the shape flight holds it solid for a long exposure).
     """
     import drone_core
     drone = drone_core.create_drone()
     launcher = Launcher(launch_height)
     state = {"i": 0}
+    blink = {"clock": 0.0, "on": None}
 
     def start():
         state["i"] = 0
         launcher.reset()
+        blink["clock"] = 0.0
+        blink["on"] = None
         print("\n" + "=" * 56)
         print(f"  {title}")
         print("=" * 56 + "\n")
 
+    def blink_led(landing):
+        if led_color is None:
+            return
+        if landing:
+            if blink["on"] is not False:
+                blink["on"] = False
+                drone.led.off()
+            return
+        blink["clock"] += drone.get_delta_time()
+        on = (blink["clock"] % LED_BLINK_PERIOD_S) < LED_BLINK_PERIOD_S / 2.0
+        if on != blink["on"]:
+            blink["on"] = on
+            drone.led.fill(*led_color) if on else drone.led.off()
+
     def update():
         record(drone)
+        blink_led(landing=launcher.done and state["i"] >= len(steps))
         if not launcher.done:
             if launcher.update(drone):
                 steps[0][1].reset()
